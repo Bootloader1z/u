@@ -1,0 +1,63 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    background-color: #f5f5f5;
+}
+
+.container {
+    margin-top: 20px;
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    width: 80%;
+    max-width: 600px;
+}
+
+.progress {
+    width: 100%;
+    background: #e0e0e0;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 20px;
+    width: 0;
+    background: #76c7c0;
+    border-radius: 5px;
+}
+
+.card-body {
+    max-height: 300px; /* Adjust maximum height */
+    overflow-y: auto;
+    padding: 10px; /* Add padding for better spacing */
+}
+
+.table {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse; /* Ensure table borders collapse properly */
+}
+
+.table th,
+.table td {
+    padding: 8px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+    white-space: nowrap; /* Prevent wrapping of table cell content */
+    overflow: hidden;
+    text-overflow: ellipsis; /* Show ellipsis for overflowed content */
+}
+
+.table th {
+    background-color: #f2f2f2;
+    color: #333;
+}

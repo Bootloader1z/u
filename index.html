@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fast Upload Transfer</title>
+    <link rel="stylesheet" href="css.css">
+</head>
+<body>
+
+    <div class="container">
+        <h1>Fast Upload Transfer</h1>
+        <input type="file" id="fileInput" multiple>
+        <button onclick="uploadFiles()">Upload</button>
+        <div class="progress" id="progressContainer">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+        <p id="status"></p>
+    </div>
+
+    <div class="container">
+        <div class="card-body">
+            <h5 class="card-title">Uploaded Files</h5>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Filename</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="fileTableBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="js.js"></script>
+</body>
+</html>
