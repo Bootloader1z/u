@@ -14,18 +14,12 @@ This project uses the Carbon library for formatting file names and folders. To i
 Install Composer:
 
 If Composer is not already installed, you can download and install it from the official website.
-
+this the direct file for (Windows); <a href="https://getcomposer.org/Composer-Setup.exe">composer installer</a>
 Clone the Repository:
 
-bash
-Copy code
-git clone https://github.com/your-username/your-repository.git
-Replace your-username and your-repository with the appropriate values.
-
+git clone https://github.com/Bootloader1z/u.git
 Navigate to the Project Directory:
 
-bash
-Copy code
 cd your-repository
 Install Dependencies:
 
