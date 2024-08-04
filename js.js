@@ -9,6 +9,17 @@ function uploadFiles() {
         return;
     }
 
+    let completedUploads = 0;
+    const totalFiles = files.length;
+
+    const updateOverallStatus = () => {
+        if (completedUploads === totalFiles) {
+            const failedUploads = Array.from(document.querySelectorAll('[id^="status-"]'))
+                .some(el => el.textContent === 'Failed');
+            status.textContent = failedUploads ? 'Upload failed. Please try again.' : 'All files uploaded successfully!';
+        }
+    };
+
     const uploadFile = function(file, index) {
         return new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
@@ -20,7 +31,7 @@ function uploadFiles() {
             xhr.upload.onprogress = function(event) {
                 if (event.lengthComputable) {
                     const percentComplete = (event.loaded / event.total) * 100;
-                    progressBar.style.width = percentComplete + '%';
+                    progressBar.style.width = `${percentComplete}%`;
                 }
             };
 
@@ -28,21 +39,24 @@ function uploadFiles() {
                 if (xhr.status === 200) {
                     const response = JSON.parse(xhr.responseText);
                     if (response.success) {
-                        document.getElementById(`status-${index}`).textContent = 'Uploaded';
-                        document.getElementById(`file-link-${index}`).href = response.filePaths[index];
+                        const filePath = response.filePaths[0]; 
+                        const linkElement = document.getElementById(`file-link-${index + 1}`);
+                        linkElement.href = filePath; 
+                        linkElement.textContent = file.name; 
+                        document.getElementById(`status-${index + 1}`).textContent = 'Uploaded';
                         resolve();
                     } else {
-                        document.getElementById(`status-${index}`).textContent = 'Failed';
+                        document.getElementById(`status-${index + 1}`).textContent = 'Failed';
                         reject();
                     }
                 } else {
-                    document.getElementById(`status-${index}`).textContent = 'Failed';
+                    document.getElementById(`status-${index + 1}`).textContent = 'Failed';
                     reject();
                 }
             };
 
             xhr.onerror = function() {
-                document.getElementById(`status-${index}`).textContent = 'Failed';
+                document.getElementById(`status-${index + 1}`).textContent = 'Failed';
                 reject();
             };
 
@@ -55,15 +69,14 @@ function uploadFiles() {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${i + 1}</td>
-            <td>${files[i].name}</td>
-            <td id="status-${i}">Uploading...</td>
+            <td><a id="file-link-${i + 1}" href="#" target="_blank">${files[i].name}</a></td>
+            <td id="status-${i + 1}">Uploading...</td>
         `;
         fileTableBody.appendChild(row);
 
-        uploadFile(files[i], i).then(() => {
-            status.textContent = 'All files uploaded successfully!';
-        }).catch(() => {
-            status.textContent = 'Upload failed. Please try again.';
+        uploadFile(files[i], i).finally(() => {
+            completedUploads++;
+            updateOverallStatus();
         });
     }
 }
