@@ -25,6 +25,4 @@ Install Dependencies:
 
 Run the following command to install Carbon and any other dependencies defined in composer.json:
 
-bash
-Copy code
 composer install
