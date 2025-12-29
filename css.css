@@ -1,88 +1,586 @@
-/* body {
-    font-family: Arial, sans-serif;
+/* ============================================
+   Fast Upload Transfer - Responsive CSS
+   Version: 2.0.0
+   ============================================ */
+
+/* CSS Reset */
+*, *::before, *::after {
+    box-sizing: border-box;
     margin: 0;
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    background-color: #f5f5f5;
+    padding: 0;
 }
 
-.container {
-    margin-top: 20px;
-    background: #fff;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-    text-align: center;
-    width: 80%;
-    max-width: 600px;
+html {
+    font-size: 16px;
+    -webkit-text-size-adjust: 100%;
 }
-
-.progress {
-    width: 100%;
-    background: #e0e0e0;
-    border-radius: 5px;
-    overflow: hidden;
-}
-
-.progress-bar {
-    height: 20px;
-    width: 0;
-    background: #76c7c0;
-    border-radius: 5px;
-}
-
-.card-body {
-    max-height: 300px; 
-    overflow-y: auto;
-    padding: 10px; 
-}
-
-.table {
-    width: 100%;
-    table-layout: fixed;
-    border-collapse: collapse; 
-
-.table th,
-.table td {
-    padding: 8px;
-    text-align: left;
-    border-bottom: 1px solid #ddd;
-    white-space: nowrap; 
-    overflow: hidden;
-    text-overflow: ellipsis; 
-}
-
-.table th {
-    background-color: #f2f2f2;
-    color: #333;
-} */
 
 body {
-    font-family: Arial, sans-serif;
-    background-color: #f5f5f5;
-}
-
-.container {
-    margin-top: 20px;
-    background: #fff;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    background-color: #e9ecef;
+    line-height: 1.5;
+    min-height: 100vh;
     padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
 
+/* Container */
+.container {
+    max-width: 1000px;
+    margin: 0 auto;
+    background: #fff;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* App Header */
+.app-header {
+    text-align: center;
+    margin-bottom: 25px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid #e9ecef;
+}
+
+.app-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #212529;
+    margin: 0 0 8px 0;
+    display: inline-block;
+}
+
+.version-badge {
+    display: inline-block;
+    font-size: 0.85rem;
+    color: #ffffff !important;
+    background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+    padding: 6px 14px;
+    border-radius: 20px;
+    vertical-align: middle;
+    margin-left: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 6px rgba(13, 110, 253, 0.3);
+}
+
+/* Upload Info Bar */
+.upload-info {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    padding: 12px 18px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-size: 0.9em;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    justify-content: center;
+    border: 1px solid #dee2e6;
+}
+
+.upload-info span {
+    white-space: nowrap;
+    color: #495057;
+}
+
+.upload-info strong {
+    color: #212529;
+}
+
+/* Button Group */
+.button-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.button-group .btn {
+    padding: 10px 20px;
+    font-weight: 600;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.btn-icon {
+    margin-right: 6px;
+}
+
+/* Browse Files Button - Special Styling */
+.btn-browse {
+    background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+    color: #ffffff !important;
+    border: none;
+    box-shadow: 0 2px 8px rgba(23, 162, 184, 0.3);
+}
+
+.btn-browse:hover {
+    background: linear-gradient(135deg, #138496 0%, #117a8b 100%);
+    color: #ffffff !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(23, 162, 184, 0.4);
+}
+
+.btn-browse:focus {
+    color: #ffffff !important;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(23, 162, 184, 0.5);
+}
+
+/* Status Text */
+.status-text {
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-weight: 500;
+}
+
+/* Progress Bar */
 .progress-bar-custom {
     height: 20px;
     background: #76c7c0;
 }
 
+/* Card & Table */
 .card-body {
-    padding: 1.25rem; 
+    padding: 1rem;
+    overflow-x: auto;
+}
+
+.table {
+    width: 100%;
+    margin-bottom: 0;
 }
 
 .table td, .table th {
-    vertical-align: middle; 
+    vertical-align: middle;
+    padding: 0.5rem;
+}
+
+/* File link text */
+.file-link-cell {
+    word-break: break-all;
+    max-width: 200px;
+}
+
+.file-link-cell a {
+    word-break: break-word;
+}
+
+/* Status cell */
+.status-cell {
+    font-size: 0.8em;
+    min-width: 120px;
+}
+
+/* ============================================
+   MOBILE STYLES (max-width: 576px)
+   ============================================ */
+@media (max-width: 576px) {
+    html {
+        font-size: 14px;
+    }
+    
+    body {
+        padding: 10px;
+    }
+
+    .container {
+        padding: 20px 15px;
+        border-radius: 10px;
+    }
+    
+    .app-header {
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+    }
+
+    .app-title {
+        font-size: 1.5rem;
+        display: block;
+    }
+    
+    .version-badge {
+        margin-left: 0;
+        margin-top: 8px;
+    }
+
+    /* Stack upload info vertically */
+    .upload-info {
+        flex-direction: column;
+        gap: 8px;
+        padding: 12px;
+        font-size: 0.85em;
+    }
+
+    /* Stack buttons vertically on mobile */
+    .button-group {
+        flex-direction: column;
+    }
+    
+    .button-group .btn {
+        width: 100%;
+    }
+
+    /* Hide table header on mobile, use card layout */
+    .table thead {
+        display: none;
+    }
+
+    .table tbody tr {
+        display: block;
+        margin-bottom: 15px;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 10px;
+        background: #fafafa;
+    }
+
+    .table tbody td {
+        display: block;
+        text-align: left;
+        padding: 5px 0;
+        border: none;
+    }
+
+    .table tbody td::before {
+        content: attr(data-label);
+        font-weight: bold;
+        display: block;
+        margin-bottom: 3px;
+        color: #666;
+        font-size: 0.85em;
+    }
+
+    /* Progress bar full width on mobile */
+    .table tbody td .progress {
+        min-width: 100% !important;
+        width: 100%;
+    }
+
+    .progress {
+        min-width: 100% !important;
+        height: 24px;
+    }
+}
+
+/* ============================================
+   TABLET STYLES (577px - 768px)
+   ============================================ */
+@media (min-width: 577px) and (max-width: 768px) {
+    body {
+        padding: 15px;
+    }
+    
+    .container {
+        padding: 25px;
+    }
+
+    .app-title {
+        font-size: 1.75rem;
+    }
+
+    .upload-info {
+        font-size: 0.85em;
+    }
+
+    .table th:first-child,
+    .table td:first-child {
+        width: 40px;
+    }
+
+    .progress {
+        min-width: 150px !important;
+    }
+
+    .status-cell {
+        font-size: 0.75em;
+    }
+
+    /* Buttons in 2x2 grid */
+    .button-group {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+    
+    .button-group .btn:last-child {
+        grid-column: span 2;
+    }
+}
+
+/* ============================================
+   LAPTOP STYLES (769px - 1024px)
+   ============================================ */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .container {
+        max-width: 900px;
+    }
+
+    .progress {
+        min-width: 180px !important;
+    }
+}
+
+/* ============================================
+   DESKTOP STYLES (1025px+)
+   ============================================ */
+@media (min-width: 1025px) {
+    .container {
+        max-width: 1100px;
+    }
+
+    .progress {
+        min-width: 220px !important;
+    }
+
+    .table {
+        font-size: 0.95rem;
+    }
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+/* Text truncate utility */
+.text-truncate-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* ============================================
+   DRAG AND DROP ZONE
+   ============================================ */
+.drop-zone {
+    border: 2px dashed #ccc;
+    border-radius: 10px;
+    padding: 30px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: #fafafa;
+    position: relative;
+}
+
+.drop-zone:hover {
+    border-color: #0d6efd;
+    background: #f0f7ff;
+}
+
+.drop-zone.drag-over {
+    border-color: #0d6efd;
+    background: #e7f1ff;
+    transform: scale(1.02);
+}
+
+.drop-zone-content {
+    color: #666;
+}
+
+.drop-zone-content svg {
+    color: #999;
+}
+
+.drop-zone-input {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+}
+
+/* ============================================
+   FILE BROWSER MODAL - Custom (fb- prefix)
+   No conflicts with Bootstrap
+   ============================================ */
+.fb-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 999999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.fb-modal {
+    background: #fff;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 600px;
+    max-height: 75vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 10px 50px rgba(0,0,0,0.5);
+    overflow: hidden;
+}
+
+.fb-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    background: #0d6efd;
+    color: #fff;
+    flex-shrink: 0;
+}
+
+.fb-title {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #fff;
+}
+
+.fb-close {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: #fff;
+    font-size: 28px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    transition: background 0.2s;
+}
+
+.fb-close:hover {
+    background: rgba(255,255,255,0.3);
+}
+
+.fb-body {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Scrollbar */
+.fb-body::-webkit-scrollbar {
+    width: 8px;
+}
+.fb-body::-webkit-scrollbar-track {
+    background: #f0f0f0;
+}
+.fb-body::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 4px;
+}
+.fb-body::-webkit-scrollbar-thumb:hover {
+    background: #aaa;
+}
+
+/* File list */
+.file-list-container {
+    width: 100%;
+}
+
+.file-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+    border-bottom: 1px solid #eee;
+    gap: 10px;
+}
+
+.file-item:nth-child(even) {
+    background: #f8f9fa;
+}
+
+.file-item:hover {
+    background: #e3f2fd;
+}
+
+.file-item:last-child {
+    border-bottom: none;
+}
+
+.file-item a,
+.file-link {
+    flex: 1;
+    color: #0d6efd;
+    text-decoration: none;
+    font-weight: 500;
+    word-break: break-word;
+    cursor: pointer;
+}
+
+.file-item a:hover,
+.file-link:hover {
+    text-decoration: underline;
+    color: #0a58ca;
+}
+
+.file-meta {
+    font-size: 0.75rem;
+    color: #666;
+    background: #e9ecef;
+    padding: 4px 10px;
+    border-radius: 12px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* Loading */
+.fb-loading {
+    padding: 50px;
+    text-align: center;
+    color: #666;
+}
+
+/* Mobile */
+@media (max-width: 576px) {
+    .fb-overlay {
+        padding: 0;
+        align-items: flex-end;
+    }
+    
+    .fb-modal {
+        max-width: 100%;
+        max-height: 85vh;
+        border-radius: 16px 16px 0 0;
+    }
+    
+    .fb-header {
+        padding: 14px 16px;
+    }
+    
+    .fb-title {
+        font-size: 1rem;
+    }
+    
+    .file-item {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 12px 16px;
+        gap: 6px;
+    }
+    
+    .file-meta {
+        font-size: 0.7rem;
+    }
+}
+
+/* Tablet */
+@media (min-width: 577px) and (max-width: 768px) {
+    .fb-modal {
+        max-width: 90%;
+        max-height: 80vh;
+    }
 }
