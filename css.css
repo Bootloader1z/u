@@ -1,6 +1,6 @@
 /* ============================================
    Fast Upload Transfer - Responsive CSS
-   Version: 2.0.0
+   Version: 2.0.1
    ============================================ */
 
 /* CSS Reset */
@@ -127,6 +127,28 @@ body {
     color: #ffffff !important;
     outline: none;
     box-shadow: 0 0 0 3px rgba(23, 162, 184, 0.5);
+}
+
+/* File Viewer Button */
+.btn-viewer {
+    background: linear-gradient(135deg, #6f42c1 0%, #5a32a3 100%);
+    color: #ffffff !important;
+    border: none;
+    box-shadow: 0 2px 8px rgba(111, 66, 193, 0.3);
+    text-decoration: none;
+}
+
+.btn-viewer:hover {
+    background: linear-gradient(135deg, #5a32a3 0%, #4a2889 100%);
+    color: #ffffff !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(111, 66, 193, 0.4);
+}
+
+.btn-viewer:focus {
+    color: #ffffff !important;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(111, 66, 193, 0.5);
 }
 
 /* Status Text */

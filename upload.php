@@ -1,6 +1,6 @@
 <?php
 /**
- * Fast Upload Transfer v2.0.0
+ * Fast Upload Transfer v2.0.1
  * Secure chunked file upload system for LAN/Local Network
  */
 
@@ -53,6 +53,83 @@ header('Access-Control-Max-Age: 86400');
 // Handle preflight
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(204);
+    exit;
+}
+
+// Handle GET request for downloads (early exit for speed)
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['action'] === 'download') {
+    $base_dir = "./s/";
+    $filePath = $_GET['file'] ?? '';
+    
+    // Security: validate path is within base_dir
+    $realBase = realpath($base_dir);
+    $realFile = realpath($filePath);
+    
+    if (!$realFile || !$realBase || strpos($realFile, $realBase) !== 0) {
+        http_response_code(403);
+        die('Access denied');
+    }
+    
+    if (!file_exists($realFile) || !is_file($realFile)) {
+        http_response_code(404);
+        die('File not found');
+    }
+    
+    $fileSize = filesize($realFile);
+    $fileName = basename($realFile);
+    
+    // Clear all output buffers
+    while (ob_get_level()) ob_end_clean();
+    
+    // Disable compression
+    if (function_exists('apache_setenv')) {
+        apache_setenv('no-gzip', '1');
+    }
+    ini_set('zlib.output_compression', 'Off');
+    
+    // Headers for fast download
+    header('Content-Type: application/octet-stream');
+    header('Content-Disposition: attachment; filename="' . $fileName . '"');
+    header('Content-Length: ' . $fileSize);
+    header('Content-Transfer-Encoding: binary');
+    header('Cache-Control: no-cache');
+    header('X-Accel-Buffering: no');
+    header('Accept-Ranges: bytes');
+    
+    // Handle range requests
+    $start = 0;
+    $end = $fileSize - 1;
+    
+    if (isset($_SERVER['HTTP_RANGE'])) {
+        if (preg_match('/bytes=(\d+)-(\d*)/', $_SERVER['HTTP_RANGE'], $m)) {
+            $start = intval($m[1]);
+            if (!empty($m[2])) $end = intval($m[2]);
+            
+            if ($start >= $fileSize) {
+                http_response_code(416);
+                die();
+            }
+            
+            http_response_code(206);
+            header("Content-Range: bytes $start-$end/$fileSize");
+            header('Content-Length: ' . ($end - $start + 1));
+        }
+    }
+    
+    // Stream file with 8MB buffer for LAN speed
+    $handle = fopen($realFile, 'rb');
+    if ($start > 0) fseek($handle, $start);
+    
+    $remaining = $end - $start + 1;
+    $buffer = 8 * 1024 * 1024; // 8MB
+    
+    while (!feof($handle) && $remaining > 0 && connection_status() === 0) {
+        echo fread($handle, min($buffer, $remaining));
+        $remaining -= $buffer;
+        flush();
+    }
+    
+    fclose($handle);
     exit;
 }
 
@@ -261,6 +338,9 @@ try {
         case 'list':
             $response = handleListFiles($base_dir);
             break;
+        case 'download':
+            handleFastDownload($input, $base_dir);
+            exit; // Download handler sends file directly
         default:
             $response = handleLegacyUpload($base_dir);
             break;
@@ -536,10 +616,21 @@ function handleStatus($input, $chunks_dir) {
 
 function handleListFiles($base_dir) {
     $files = [];
+    
+    if (!is_dir($base_dir)) {
+        return ['success' => true, 'files' => []];
+    }
+    
     $directories = glob($base_dir . '*', GLOB_ONLYDIR);
+    
+    if ($directories === false) {
+        return ['success' => true, 'files' => []];
+    }
     
     foreach ($directories as $dir) {
         $dirFiles = glob($dir . '/*');
+        if ($dirFiles === false) continue;
+        
         foreach ($dirFiles as $file) {
             if (is_file($file)) {
                 $files[] = [
@@ -556,6 +647,102 @@ function handleListFiles($base_dir) {
     usort($files, fn($a, $b) => strtotime($b['date']) - strtotime($a['date']));
     
     return ['success' => true, 'files' => array_slice($files, 0, 100)];
+}
+
+/**
+ * Fast download handler - optimized for LAN throughput
+ */
+function handleFastDownload($input, $base_dir) {
+    $filePath = $input['file'] ?? '';
+    
+    // Security: validate path is within base_dir
+    $realBase = realpath($base_dir);
+    $realFile = realpath($filePath);
+    
+    if (!$realFile || strpos($realFile, $realBase) !== 0) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'Access denied']);
+        return;
+    }
+    
+    if (!file_exists($realFile) || !is_file($realFile)) {
+        http_response_code(404);
+        echo json_encode(['success' => false, 'message' => 'File not found']);
+        return;
+    }
+    
+    $fileSize = filesize($realFile);
+    $fileName = basename($realFile);
+    
+    // Clear all output buffers for maximum speed
+    while (ob_get_level()) {
+        ob_end_clean();
+    }
+    
+    // Disable compression for binary files
+    if (function_exists('apache_setenv')) {
+        apache_setenv('no-gzip', '1');
+    }
+    ini_set('zlib.output_compression', 'Off');
+    
+    // Set headers for fast download
+    header('Content-Type: application/octet-stream');
+    header('Content-Disposition: attachment; filename="' . $fileName . '"');
+    header('Content-Length: ' . $fileSize);
+    header('Content-Transfer-Encoding: binary');
+    header('Cache-Control: no-cache, no-store, must-revalidate');
+    header('Pragma: no-cache');
+    header('Expires: 0');
+    header('X-Accel-Buffering: no'); // Disable nginx buffering
+    header('Accept-Ranges: bytes');
+    
+    // Handle range requests for resume support
+    $start = 0;
+    $end = $fileSize - 1;
+    
+    if (isset($_SERVER['HTTP_RANGE'])) {
+        $range = $_SERVER['HTTP_RANGE'];
+        if (preg_match('/bytes=(\d+)-(\d*)/', $range, $matches)) {
+            $start = intval($matches[1]);
+            if (!empty($matches[2])) {
+                $end = intval($matches[2]);
+            }
+            
+            if ($start > $end || $start >= $fileSize) {
+                http_response_code(416); // Range Not Satisfiable
+                header("Content-Range: bytes */$fileSize");
+                return;
+            }
+            
+            http_response_code(206); // Partial Content
+            header("Content-Range: bytes $start-$end/$fileSize");
+            header('Content-Length: ' . ($end - $start + 1));
+        }
+    }
+    
+    // Use readfile for small files, chunked reading for large files
+    if ($fileSize < 100 * 1024 * 1024 && $start === 0) { // < 100MB
+        readfile($realFile);
+    } else {
+        // Chunked reading for large files - 8MB buffer for LAN
+        $bufferSize = 8 * 1024 * 1024;
+        $handle = fopen($realFile, 'rb');
+        
+        if ($start > 0) {
+            fseek($handle, $start);
+        }
+        
+        $remaining = $end - $start + 1;
+        
+        while (!feof($handle) && $remaining > 0 && connection_status() === 0) {
+            $readSize = min($bufferSize, $remaining);
+            echo fread($handle, $readSize);
+            $remaining -= $readSize;
+            flush();
+        }
+        
+        fclose($handle);
+    }
 }
 
 function handleLegacyUpload($base_dir) {
