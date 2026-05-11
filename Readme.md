@@ -1,6 +1,6 @@
 # Fast Upload Transfer
 
-**Version: 2.1.0** | [Changelog](#changelog)
+**Version: 2.1.1** | [Changelog](#changelog)
 
 A high-performance, secure file transfer solution optimized for local networks (LAN/WiFi). Designed for transferring large files (5GB - 50GB) without USB cables.
 
