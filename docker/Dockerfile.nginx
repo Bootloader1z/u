@@ -1,0 +1,46 @@
+# syntax=docker/dockerfile:1.6
+# =====================================================================
+# Fast Upload Transfer - Nginx front-end container
+# =====================================================================
+FROM nginx:1.27-alpine
+
+RUN apk add --no-cache curl tini shadow \
+ && rm /etc/nginx/conf.d/default.conf \
+ && mkdir -p /etc/nginx/snippets \
+ # Align the nginx worker user with the php-fpm container's www-data
+ # (UID 82 on Alpine) so the read-only uploads volume is readable.
+ && (getent group 82 || addgroup -g 82 www-data) \
+ && (getent passwd 82 || adduser -D -H -u 82 -G www-data -s /sbin/nologin www-data)
+
+COPY docker/nginx.conf        /etc/nginx/nginx.conf
+COPY docker/default.conf      /etc/nginx/conf.d/default.conf
+COPY docker/security.conf     /etc/nginx/snippets/security.conf
+COPY docker/fastcgi_php.conf  /etc/nginx/snippets/fastcgi_php.conf
+
+# Bake the static assets into the image so nginx can serve them
+# directly. PHP endpoints are proxied to the app container by FastCGI
+# using SCRIPT_FILENAME, so the nginx image doesn't need the .php files
+# themselves -- but we keep them out of document root explicitly.
+RUN mkdir -p /var/www/html
+COPY --chown=www-data:www-data \
+    index.html viewer.html css.css js.js viewer.css viewer.js \
+    /var/www/html/
+RUN find /var/www/html -type f -exec chmod 644 {} \;
+
+# Writable dirs for nginx workers. The master still starts as root
+# inside the container to bind 8080 and chown workers; compose drops
+# capabilities and flips the rootfs to read-only.
+RUN mkdir -p /var/cache/nginx/client_temp \
+             /var/cache/nginx/proxy_temp \
+             /var/cache/nginx/fastcgi_temp \
+             /var/cache/nginx/uwsgi_temp \
+             /var/cache/nginx/scgi_temp \
+ && chown -R www-data:www-data /var/cache/nginx /var/log/nginx
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -fsS http://127.0.0.1:8080/index.html >/dev/null || exit 1
+
+ENTRYPOINT ["/sbin/tini", "--"]
+CMD ["nginx", "-g", "daemon off;"]

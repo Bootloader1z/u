@@ -1,6 +1,6 @@
 # Fast Upload Transfer
 
-**Version: 2.0.0** | [Changelog](#changelog)
+**Version: 2.1.0** | [Changelog](#changelog)
 
 A high-performance, secure file transfer solution optimized for local networks (LAN/WiFi). Designed for transferring large files (5GB - 50GB) without USB cables.
 
@@ -196,6 +196,20 @@ The UI adapts to different screen sizes:
 ```
 
 ## Changelog
+
+### v2.1.0 (2026-05-11)
+
+**Docker ready and secured system:**
+- Full Docker stack: nginx + PHP-FPM (multi-stage, Alpine) via docker-compose
+- X-Accel-Redirect hand-off: nginx streams files via kernel sendfile, PHP workers are released immediately
+- Both containers run non-root, read-only rootfs, all Linux capabilities dropped, no-new-privileges, pids/mem/cpu/ulimits enforced, tmpfs-only writable paths
+- Per-IP connection + request rate limits at the edge, verb whitelist (GET/POST/OPTIONS/HEAD)
+- PHP hardening: disable_functions, open_basedir sandbox, allow_url_fopen/include off, expose_php off, cgi.fix_pathinfo=0, clear_env, opcache + JIT enabled
+- Apache variant preserved as Dockerfile.apache for rollback
+- Rollback-safe: X-Accel-Redirect is gated on SERVER_SOFTWARE, so the same PHP code still works under Apache
+- Hardened path-traversal check (trailing-separator compare) in stream.php and upload.php download branch
+- Client IP correctly forwarded from nginx to PHP for rate limiting and security log
+- Comprehensive image extension coverage (HEIC/HEIF, AVIF, JXL, RAW formats, macOS/Windows/Linux native types, PSD, etc.)
 
 ### v2.0.0 (2025-12-30)
 

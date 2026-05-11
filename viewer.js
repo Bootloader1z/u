@@ -9,7 +9,37 @@ const FileViewer = {
 
     // File type mappings
     types: {
-        image: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'],
+        image: [
+            // Common raster
+            'jpg', 'jpeg', 'jpe', 'jif', 'jfif', 'jfi',
+            'png', 'apng', 'gif', 'webp', 'bmp', 'dib',
+            'ico', 'cur', 'tif', 'tiff',
+            // Modern / next-gen
+            'avif', 'avifs', 'jxl',
+            'jp2', 'j2k', 'jpf', 'jpx', 'jpm', 'jpg2',
+            // Mobile (iOS / Android)
+            'heic', 'heif', 'heics', 'heifs', 'hif',
+            // Vector
+            'svg', 'svgz',
+            // Windows
+            'wmf', 'emf', 'emz', 'dds', 'jxr', 'hdp', 'wdp',
+            // macOS
+            'icns', 'pict', 'pct',
+            // Linux / open
+            'xpm', 'xbm', 'pbm', 'pgm', 'ppm', 'pnm', 'pam', 'xcf',
+            // HDR / graphics / legacy
+            'tga', 'targa', 'exr', 'hdr', 'pic', 'pcx',
+            'djvu', 'djv', 'mng', 'jng', 'qoi',
+            'ktx', 'ktx2', 'astc',
+            // Editor native
+            'psd', 'psb', 'ai', 'eps', 'epsf', 'epsi',
+            // Camera RAW
+            'raw', 'dng', 'arw', 'sr2', 'srf',
+            'cr2', 'cr3', 'crw', 'nef', 'nrw',
+            'orf', 'rw2', 'raf', 'pef', 'srw',
+            '3fr', 'erf', 'kdc', 'dcr', 'mos',
+            'mrw', 'rwl', 'x3f', 'iiq', 'mef', 'mdc'
+        ],
         video: ['mp4', 'webm', 'ogg', 'mov', 'avi', 'mkv', 'm4v'],
         audio: ['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a', 'wma'],
         pdf: ['pdf']

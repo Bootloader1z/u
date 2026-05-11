@@ -1,6 +1,6 @@
 <?php
 /**
- * Fast Upload Transfer v2.0.1
+ * Fast Upload Transfer v2.1.0
  * Secure chunked file upload system for LAN/Local Network
  */
 
@@ -64,8 +64,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['act
     // Security: validate path is within base_dir
     $realBase = realpath($base_dir);
     $realFile = realpath($filePath);
-    
-    if (!$realFile || !$realBase || strpos($realFile, $realBase) !== 0) {
+
+    $baseWithSep = $realBase !== false
+        ? rtrim($realBase, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR
+        : '';
+    if (!$realFile || !$realBase || strpos($realFile, $baseWithSep) !== 0) {
         http_response_code(403);
         die('Access denied');
     }
@@ -86,8 +89,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['act
         apache_setenv('no-gzip', '1');
     }
     ini_set('zlib.output_compression', 'Off');
-    
-    // Headers for fast download
+
+    // --------------------------------------------------------------
+    // Accelerated download under nginx via X-Accel-Redirect.
+    // --------------------------------------------------------------
+    $useAccel = ($_SERVER['SERVER_SOFTWARE'] ?? '') !== ''
+        && stripos($_SERVER['SERVER_SOFTWARE'], 'nginx') !== false;
+
+    if ($useAccel) {
+        $relative = ltrim(substr($realFile, strlen($realBase)), DIRECTORY_SEPARATOR . '/');
+        $encoded  = implode('/', array_map('rawurlencode', explode('/', str_replace('\\', '/', $relative))));
+
+        header('Content-Type: application/octet-stream');
+        header('Content-Disposition: attachment; filename="' . $fileName . '"');
+        header('X-Accel-Redirect: /__send/' . $encoded);
+        exit;
+    }
+
+    // Headers for fast download (fallback)
     header('Content-Type: application/octet-stream');
     header('Content-Disposition: attachment; filename="' . $fileName . '"');
     header('Content-Length: ' . $fileSize);
