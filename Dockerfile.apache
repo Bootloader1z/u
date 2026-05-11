@@ -1,0 +1,83 @@
+# syntax=docker/dockerfile:1.6
+# =====================================================================
+# Fast Upload Transfer - hardened, multi-stage build
+# =====================================================================
+
+# --------- Stage 1: Composer dependencies (no dev, no scripts) --------
+FROM composer:2 AS deps
+WORKDIR /build
+COPY composer.json composer.lock* ./
+RUN --mount=type=cache,target=/tmp/composer-cache \
+    COMPOSER_HOME=/tmp/composer-cache \
+    composer install \
+        --no-dev \
+        --no-interaction \
+        --no-progress \
+        --no-scripts \
+        --prefer-dist \
+        --optimize-autoloader \
+        --classmap-authoritative
+
+# --------- Stage 2: Runtime ------------------------------------------
+FROM php:8.3-apache AS runtime
+
+# Minimal OS deps + PHP extensions, then purge build tooling.
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+        libzip-dev \
+        curl \
+        ca-certificates; \
+    docker-php-ext-install -j"$(nproc)" zip opcache; \
+    apt-get purge -y --auto-remove libzip-dev; \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /usr/src/*
+
+# Apache: enable only what we need; disable noisy/optional modules.
+RUN set -eux; \
+    a2enmod rewrite headers expires deflate; \
+    a2dismod -f autoindex status info cgi cgid negotiation userdir || true; \
+    # Move the listen port to 8080 so the container can run as non-root.
+    sed -ri 's!^Listen 80$!Listen 8080!' /etc/apache2/ports.conf; \
+    sed -ri 's!:80>!:8080>!g' /etc/apache2/sites-available/000-default.conf; \
+    # Tighten the shipped security.conf in case our override is missed.
+    sed -ri 's!^ServerTokens .*!ServerTokens Prod!'       /etc/apache2/conf-available/security.conf; \
+    sed -ri 's!^ServerSignature .*!ServerSignature Off!'  /etc/apache2/conf-available/security.conf; \
+    sed -ri 's!^TraceEnable .*!TraceEnable Off!'          /etc/apache2/conf-available/security.conf
+
+COPY docker/php.ini                /usr/local/etc/php/conf.d/zz-app.ini
+COPY docker/apache-hardening.conf  /etc/apache2/conf-available/zz-hardening.conf
+RUN a2enconf zz-hardening
+
+WORKDIR /var/www/html
+
+# Copy vendor from deps stage (owned by www-data).
+COPY --from=deps --chown=www-data:www-data /build/vendor ./vendor
+
+# Copy app source, respecting .dockerignore.
+COPY --chown=www-data:www-data . .
+
+# Prepare runtime dirs, lock down permissions, make Apache runtime paths
+# writable by the non-root user.
+RUN set -eux; \
+    rm -rf ./docker ./Dockerfile ./docker-compose.yml ./.dockerignore ./Readme.md 2>/dev/null || true; \
+    mkdir -p ./s ./chunks ./rate_limits ./logs; \
+    # security.log is written by the app, but the root FS is read-only at
+    # runtime. Redirect writes into the /var/www/html/logs volume.
+    rm -f ./security.log; \
+    ln -s logs/security.log ./security.log; \
+    chown -R www-data:www-data /var/www/html; \
+    find /var/www/html -type d -exec chmod 750 {} \; ; \
+    find /var/www/html -type f -exec chmod 640 {} \; ; \
+    chmod -R 770 /var/www/html/s /var/www/html/chunks /var/www/html/rate_limits /var/www/html/logs; \
+    chown -R www-data:www-data \
+        /var/run/apache2 \
+        /var/log/apache2 \
+        /var/lock/apache2
+
+# Drop to non-root for the Apache master process.
+USER www-data
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -fsS http://127.0.0.1:8080/index.html >/dev/null || exit 1

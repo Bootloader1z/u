@@ -1,0 +1,139 @@
+services:
+
+  # ---------------------------------------------------------------
+  # PHP-FPM application container
+  # ---------------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: fast-upload-transfer-app:latest
+    container_name: fast-upload-transfer-app
+    restart: unless-stopped
+
+    environment:
+      TZ: UTC
+
+    # ---- Security hardening --------------------------------------
+    user: "www-data"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+    pids_limit: 256
+    mem_limit: 1g
+    memswap_limit: 1g
+    cpus: 2.0
+    ulimits:
+      nofile: { soft: 4096, hard: 8192 }
+      nproc:  512
+
+    tmpfs:
+      - /tmp:size=1g,mode=1777,nosuid,nodev
+      - /var/run:size=8m,mode=0755,nosuid,nodev
+
+    volumes:
+      - uploads:/var/www/html/s
+      - chunks:/var/www/html/chunks
+      - rate_limits:/var/www/html/rate_limits
+      - logs:/var/www/html/logs
+
+    networks:
+      - upload_net
+
+    expose:
+      - "9000"
+
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit((bool)@fsockopen('127.0.0.1',9000) ? 0 : 1);"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---------------------------------------------------------------
+  # Nginx front-end container
+  # ---------------------------------------------------------------
+  web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.nginx
+    image: fast-upload-transfer-web:latest
+    container_name: fast-upload-transfer-web
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+
+    environment:
+      TZ: UTC
+
+    ports:
+      - "8080:8080"
+
+    # ---- Security hardening --------------------------------------
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # nginx master needs these two caps to bind low ports and drop
+    # privileges to the worker. We listen on 8080 so they are not
+    # strictly required, but keeping them avoids surprises if the
+    # listener is ever moved back to :80.
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
+
+    pids_limit: 128
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpus: 1.0
+    ulimits:
+      nofile: { soft: 8192, hard: 16384 }
+
+    tmpfs:
+      - /var/run:size=8m,mode=0755,nosuid,nodev
+      - /var/cache/nginx:size=256m,mode=0755,nosuid,nodev
+      - /tmp:size=64m,mode=1777,nosuid,nodev
+
+    # Read-only mount of the uploads volume so nginx can X-Accel-Redirect
+    # directly from the same storage PHP writes to.
+    volumes:
+      - uploads:/var/www/html/s:ro
+
+    networks:
+      - upload_net
+
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/index.html"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  uploads:
+  chunks:
+  rate_limits:
+  logs:
+
+networks:
+  upload_net:
+    driver: bridge
