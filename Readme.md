@@ -1,8 +1,10 @@
 # Fast Upload Transfer
 
-**Version: 2.1.1** | [Changelog](#changelog)
+**Version: 2.2.0** | [Changelog](#changelog)
 
 A high-performance, secure file transfer solution optimized for local networks (LAN/WiFi). Designed for transferring large files (5GB - 50GB) without USB cables.
+
+> **AI-DLC**: This project uses the [AI-Driven Development Life Cycle (AI-DLC)](https://github.com/awslabs/aidlc-workflows) v0.1.8 workflow. Rules are in `.aidlc/`. Start any development task with: `"Using AI-DLC, ..."`.
 
 ## Features
 
@@ -11,18 +13,25 @@ A high-performance, secure file transfer solution optimized for local networks (
 - **12 Parallel Connections** - Saturate gigabit network bandwidth
 - **Auto-Resume** - Recover from connection drops automatically
 - **Pause/Resume** - Stop and continue uploads anytime
+- **X-Accel-Redirect** - nginx kernel sendfile for zero-copy downloads
 
 ### Security
 - **Input Validation** - All inputs sanitized and validated
-- **File Type Blocking** - Prevents PHP/executable uploads
-- **Path Traversal Protection** - Secure filename handling
-- **Rate Limiting** - Optional DDoS protection (disabled for LAN)
+- **Extended File Type Blocking** - Blocks PHP, executables, scripts, and SVG
+- **Magic Bytes Validation** - First-chunk binary signature check (PE, ELF, Mach-O, PHP, shell)
+- **Path Traversal Protection** - Trailing-separator hardened path checks
+- **Content Security Policy** - Strict CSP on all HTML responses and nginx headers
+- **Hardened CORS** - Origin validated against allowlist (no reflected `Origin` header)
+- **Rate Limiting** - Per-IP connection and request limits at nginx edge + PHP layer
 - **Security Logging** - All events logged for audit
 - **XSS/CSRF Headers** - Security headers on all responses
+- **Permissions-Policy** - Disables geolocation, microphone, camera, payment APIs
+- **Cross-Origin-Opener-Policy / Cross-Origin-Resource-Policy** headers
+- **HSTS-ready** - Header pre-configured, enable when TLS is in place
 
 ### User Experience
 - **Drag & Drop** - Drop files directly onto the page
-- **File Browser** - View and download uploaded files
+- **File Browser / Viewer** - View, stream, and download uploaded files
 - **Responsive UI** - Works on mobile, tablet, and desktop
 - **Real-time Progress** - Speed, ETA, and chunk status
 - **90-Day Retention** - Auto-cleanup of old files
@@ -56,6 +65,17 @@ composer install
 # Set permissions
 chmod 755 s/ chunks/ rate_limits/
 ```
+
+### Docker (Recommended — nginx + PHP-FPM)
+
+```bash
+git clone https://github.com/Bootloader1z/u.git
+cd u
+docker compose up -d
+# Access at http://localhost:8080
+```
+
+Both containers run non-root, read-only rootfs, all Linux capabilities dropped, `no-new-privileges`, pids/mem/cpu/ulimits enforced, tmpfs-only writable paths.
 
 ### Windows Setup (XAMPP)
 
@@ -154,7 +174,7 @@ const CONNECTION_TIMEOUT = 120000;     // 2 min timeout
 define('MAX_FILE_SIZE', 50 * 1024 * 1024 * 1024); // 50GB
 define('RETENTION_DAYS', 90);                      // File retention
 define('ENABLE_RATE_LIMIT', false);                // For LAN use
-define('BLOCKED_EXTENSIONS', ['php', 'phtml', ...]); // Blocked types
+define('BLOCKED_EXTENSIONS', ['php', 'exe', ...]);  // Blocked types
 ```
 
 ## Security Features
@@ -162,11 +182,15 @@ define('BLOCKED_EXTENSIONS', ['php', 'phtml', ...]); // Blocked types
 | Feature | Description |
 |---------|-------------|
 | Input Sanitization | All filenames and IDs validated |
-| Extension Blocking | PHP, PHTML, PHAR files blocked |
-| Path Traversal | Directory traversal prevented |
-| Rate Limiting | Optional request throttling |
-| Security Headers | X-Frame-Options, X-XSS-Protection |
-| Audit Logging | All uploads logged to security.log |
+| Extended Extension Blocking | PHP, PHTML, PHAR, executables, scripts, SVG |
+| Magic Bytes Check | First-chunk binary signature validation (PE/ELF/Mach-O/PHP/shell) |
+| Path Traversal | Trailing-separator hardened directory traversal prevention |
+| Hardened CORS | Origin validated against allowlist, no reflected headers |
+| Content Security Policy | Strict CSP on HTML and API responses |
+| Rate Limiting | Per-IP nginx edge limits + PHP application layer |
+| Security Headers | X-Frame-Options, X-XSS-Protection, Permissions-Policy, COOP, CORP |
+| Audit Logging | All uploads and security events logged to security.log |
+| HSTS-ready | Header pre-configured, enable when TLS is in place |
 
 ## Responsive Design
 
@@ -183,11 +207,25 @@ The UI adapts to different screen sizes:
 
 ```
 ├── index.html       # Main UI with drag-drop
+├── viewer.html      # File browser and media viewer
 ├── js.js            # Upload logic (chunked, parallel)
-├── file-browser.js  # File browser modal (separate for performance)
+├── viewer.js        # File viewer module
 ├── css.css          # Responsive styles (mobile/tablet/desktop)
+├── viewer.css       # Viewer styles
 ├── upload.php       # Secure server handler
+├── stream.php       # Media streaming handler
 ├── .htaccess        # Apache security config
+├── .aidlc/          # AI-DLC workflow rules (v0.1.8)
+├── .kiro/steering/  # Kiro AI-DLC steering file
+├── docker/          # Docker configuration files
+│   ├── nginx.conf
+│   ├── default.conf
+│   ├── security.conf
+│   ├── php.ini
+│   ├── php-fpm.conf
+│   └── Dockerfile.nginx
+├── docker-compose.yml
+├── Dockerfile
 ├── s/               # Uploaded files (90-day retention)
 ├── chunks/          # Temp chunks (7-day cleanup)
 ├── rate_limits/     # Rate limit data (auto-cleanup)
@@ -197,7 +235,24 @@ The UI adapts to different screen sizes:
 
 ## Changelog
 
-### v2.1.0 (2026-05-11)
+### v2.2.0 (2026-05-13)
+
+**Security hardening and new features (AI-DLC guided):**
+
+- **Magic bytes validation** — First chunk checked for PE (EXE/DLL), ELF, Mach-O, PHP `<?php`, and shell shebang signatures; upload rejected regardless of extension
+- **Extended blocked extensions** — Added `php7`, `php8`, `pht`, `phtm`, `shtml`, `exe`, `bat`, `cmd`, `com`, `msi`, `vbs`, `vbe`, `jse`, `wsf`, `wsh`, `ps1`, `ps2`, `psc1`, `psc2`, `sh`, `bash`, `zsh`, `csh`, `ksh`, `py`, `pyc`, `pyo`, `rb`, `pl`, `cgi`, `asp`, `aspx`, `ashx`, `asmx`, `axd`, `jsp`, `jspx`, `cfm`, `cfml`, `svg`
+- **Hardened CORS** — `Access-Control-Allow-Origin` now validates against `ALLOWED_ORIGINS` allowlist; no longer reflects arbitrary `Origin` header
+- **Content Security Policy** — Strict CSP added to all HTML responses (meta tag) and nginx `security.conf`; restricts scripts, styles, fonts, connections to `'self'` + CDN
+- **Hardened path traversal** — `handleFastDownload()` now uses trailing-separator comparison (consistent with GET download and `stream.php`)
+- **Hardened `getClientIP()`** — Trusts only `REMOTE_ADDR` and `X-Real-IP` (set by nginx); no longer blindly trusts `X-Forwarded-For` chain which is spoofable
+- **`isValidUploadId()` type safety** — Added `is_string()` check before regex; uses named constant `UPLOAD_ID_PATTERN`
+- **Stricter filename sanitization** — Unicode-aware regex (`\p{L}\p{N}`), uses `MAX_FILENAME_LENGTH` constant, trims whitespace before empty check
+- **`file_exists` check in GET download** — Added missing 404 guard after path validation
+- **Security headers** — Added `Content-Security-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`, `Cross-Origin-Resource-Policy` to PHP responses
+- **`.htaccess` hardening** — Added `Options -ExecCGI`, blocked `logs/` and `docker/` directories, added PHP flags (`expose_php Off`, `display_errors Off`, `allow_url_fopen Off`), added all new security headers
+- **AI-DLC integration** — Added `.aidlc/` rules directory (v0.1.8) and `.kiro/steering/ai-dlc.md` steering file
+
+### v2.1.1 (2026-05-11)
 
 **Docker ready and secured system:**
 - Full Docker stack: nginx + PHP-FPM (multi-stage, Alpine) via docker-compose

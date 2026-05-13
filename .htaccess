@@ -1,28 +1,31 @@
 # Fast Upload Transfer - Security Configuration
-# Version: 2.1.0
+# Version: 2.2.0
 
 # Prevent directory listing
-Options -Indexes
+Options -Indexes -ExecCGI
 
 # Prevent access to sensitive files
-<FilesMatch "\.(json|log|md)$">
+<FilesMatch "\.(json|log|md|lock|sh|sql|bak|ini|yaml|yml|env|htpasswd)$">
     Order Allow,Deny
     Deny from all
 </FilesMatch>
 
-# Allow access to specific files
-<FilesMatch "^(index\.html|upload\.php|js\.js|css\.css|file-browser\.js)$">
+# Allow access to specific files only
+<FilesMatch "^(index\.html|viewer\.html|upload\.php|stream\.php|js\.js|viewer\.js|css\.css|viewer\.css)$">
     Order Allow,Deny
     Allow from all
 </FilesMatch>
 
-# Protect chunks directory
+# Protect sensitive directories
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    RewriteRule ^chunks/ - [F,L]
+    RewriteRule ^chunks/     - [F,L]
     RewriteRule ^rate_limits/ - [F,L]
-    RewriteRule ^vendor/ - [F,L]
+    RewriteRule ^vendor/     - [F,L]
+    RewriteRule ^logs/       - [F,L]
+    RewriteRule ^docker/     - [F,L]
     RewriteRule ^security\.log$ - [F,L]
+    RewriteRule ^\.          - [F,L]
 </IfModule>
 
 # Security headers
@@ -31,6 +34,12 @@ Options -Indexes
     Header always set X-Frame-Options "DENY"
     Header always set X-XSS-Protection "1; mode=block"
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=()"
+    Header always set Cross-Origin-Opener-Policy "same-origin"
+    Header always set Cross-Origin-Resource-Policy "same-site"
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' https://cdn.jsdelivr.net; font-src 'self' https://cdn.jsdelivr.net; img-src 'self' data:; connect-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'"
+    # Uncomment when TLS is configured:
+    # Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
 </IfModule>
 
 # PHP settings (if allowed)
@@ -40,13 +49,16 @@ Options -Indexes
     php_value max_execution_time 0
     php_value memory_limit 512M
     php_value output_buffering Off
+    php_flag expose_php Off
+    php_flag display_errors Off
+    php_flag allow_url_fopen Off
+    php_flag allow_url_include Off
 </IfModule>
 
 # Disable compression for large file downloads (faster on LAN)
 <IfModule mod_deflate.c>
     # Only compress text-based files
     AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json
-    
     # Disable for uploads directory
     SetEnvIfNoCase Request_URI "^/s/" no-gzip
 </IfModule>

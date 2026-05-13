@@ -1,6 +1,6 @@
 <?php
 /**
- * Fast Upload Transfer v2.1.0
+ * Fast Upload Transfer v2.2.0
  * Secure chunked file upload system for LAN/Local Network
  */
 
@@ -16,9 +16,22 @@ define('MAX_CHUNK_SIZE', 20 * 1024 * 1024); // 20MB max chunk
 define('RATE_LIMIT_REQUESTS', 1000); // Max requests per minute per IP
 define('RATE_LIMIT_WINDOW', 60); // Rate limit window in seconds
 define('ENABLE_RATE_LIMIT', false); // Disable for LAN, enable for public
-define('BLOCKED_EXTENSIONS', ['php', 'phtml', 'php3', 'php4', 'php5', 'phps', 'phar', 'htaccess', 'htpasswd']);
+define('BLOCKED_EXTENSIONS', [
+    'php', 'phtml', 'php3', 'php4', 'php5', 'php7', 'php8',
+    'phps', 'phar', 'pht', 'phtm', 'shtml',
+    'htaccess', 'htpasswd',
+    'exe', 'bat', 'cmd', 'com', 'msi', 'vbs', 'vbe', 'js', 'jse',
+    'wsf', 'wsh', 'ps1', 'ps2', 'psc1', 'psc2',
+    'sh', 'bash', 'zsh', 'csh', 'ksh',
+    'py', 'pyc', 'pyo', 'rb', 'pl', 'cgi',
+    'asp', 'aspx', 'ashx', 'asmx', 'axd',
+    'jsp', 'jspx', 'cfm', 'cfml',
+    'svg', // SVG can contain embedded scripts
+]);
 define('RETENTION_DAYS', 90);
 define('CHUNK_RETENTION_DAYS', 7);
+define('MAX_FILENAME_LENGTH', 200);
+define('UPLOAD_ID_PATTERN', '/^[0-9]{10,13}-[a-z0-9]{9}$/');
 
 // ============================================
 // PHP CONFIGURATION FOR LARGE FILES
@@ -42,10 +55,20 @@ header('X-XSS-Protection: 1; mode=block');
 header('Referrer-Policy: strict-origin-when-cross-origin');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
+header('Content-Security-Policy: default-src \'none\'');
+header('Permissions-Policy: geolocation=(), microphone=(), camera=()');
 
-// CORS for LAN access
-$origin = $_SERVER['HTTP_ORIGIN'] ?? '*';
-header("Access-Control-Allow-Origin: $origin");
+// CORS for LAN access - validate origin against allowlist
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+$allowedOrigins = ALLOWED_ORIGINS;
+if (in_array('*', $allowedOrigins, true)) {
+    header("Access-Control-Allow-Origin: *");
+} elseif ($origin !== '' && in_array($origin, $allowedOrigins, true)) {
+    header("Access-Control-Allow-Origin: " . $origin);
+    header('Vary: Origin');
+} else {
+    header("Access-Control-Allow-Origin: ");
+}
 header('Access-Control-Allow-Methods: POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, X-Requested-With');
 header('Access-Control-Max-Age: 86400');
@@ -170,20 +193,24 @@ foreach ([$base_dir, $chunks_dir, $rate_limit_dir] as $dir) {
 // ============================================
 
 /**
- * Get client IP address (handles proxies)
+ * Get client IP address
+ * Trusts X-Forwarded-For only when running behind a known proxy (nginx sets REMOTE_ADDR correctly).
+ * For direct PHP-FPM via nginx, REMOTE_ADDR is already the real client IP forwarded by nginx.
  */
 function getClientIP() {
-    $headers = ['HTTP_CLIENT_IP', 'HTTP_X_FORWARDED_FOR', 'HTTP_X_FORWARDED', 'HTTP_FORWARDED_FOR', 'HTTP_FORWARDED', 'REMOTE_ADDR'];
-    foreach ($headers as $header) {
-        if (!empty($_SERVER[$header])) {
-            $ip = explode(',', $_SERVER[$header])[0];
-            $ip = trim($ip);
-            if (filter_var($ip, FILTER_VALIDATE_IP)) {
-                return $ip;
-            }
+    // When behind nginx (docker setup), nginx sets X-Real-IP or passes REMOTE_ADDR correctly.
+    // Only trust X-Forwarded-For if explicitly configured; default to REMOTE_ADDR.
+    $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+    
+    // Accept X-Real-IP set by nginx (single trusted proxy)
+    if (!empty($_SERVER['HTTP_X_REAL_IP'])) {
+        $candidate = trim($_SERVER['HTTP_X_REAL_IP']);
+        if (filter_var($candidate, FILTER_VALIDATE_IP)) {
+            $ip = $candidate;
         }
     }
-    return '0.0.0.0';
+    
+    return filter_var($ip, FILTER_VALIDATE_IP) ? $ip : '0.0.0.0';
 }
 
 /**
@@ -234,21 +261,21 @@ function sanitizeFilename($filename) {
     // Remove dangerous characters
     $filename = preg_replace('/[<>:"\/\\|?*]/', '_', $filename);
     
-    // Limit to safe characters
-    $filename = preg_replace('/[^a-zA-Z0-9._\-\s\(\)\[\]]/u', '_', $filename);
+    // Limit to safe characters (allow Unicode letters/numbers for international filenames)
+    $filename = preg_replace('/[^\p{L}\p{N}._\-\s\(\)\[\]]/u', '_', $filename);
     
     // Prevent double extensions attacks
-    $filename = preg_replace('/\.+/', '.', $filename);
+    $filename = preg_replace('/\.{2,}/', '.', $filename);
     
     // Limit length
-    if (strlen($filename) > 255) {
+    if (strlen($filename) > MAX_FILENAME_LENGTH) {
         $ext = pathinfo($filename, PATHINFO_EXTENSION);
         $name = pathinfo($filename, PATHINFO_FILENAME);
-        $filename = substr($name, 0, 250 - strlen($ext)) . '.' . $ext;
+        $filename = substr($name, 0, MAX_FILENAME_LENGTH - strlen($ext) - 1) . '.' . $ext;
     }
     
     // Prevent empty filename
-    if (empty($filename) || $filename === '.') {
+    if (empty(trim($filename)) || $filename === '.') {
         $filename = 'unnamed_' . time();
     }
     
@@ -260,14 +287,38 @@ function sanitizeFilename($filename) {
  */
 function isExtensionAllowed($filename) {
     $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-    return !in_array($ext, BLOCKED_EXTENSIONS);
+    return !in_array($ext, BLOCKED_EXTENSIONS, true);
+}
+
+/**
+ * Validate first chunk magic bytes against known dangerous signatures.
+ * Returns false if the file appears to be executable/script regardless of extension.
+ */
+function isChunkSafe($tmpPath) {
+    $handle = fopen($tmpPath, 'rb');
+    if (!$handle) return true; // Can't read, let extension check handle it
+    $header = fread($handle, 8);
+    fclose($handle);
+    
+    // PE executable (Windows EXE/DLL)
+    if (substr($header, 0, 2) === 'MZ') return false;
+    // ELF executable (Linux)
+    if (substr($header, 0, 4) === "\x7fELF") return false;
+    // Mach-O executable (macOS)
+    if (substr($header, 0, 4) === "\xfe\xed\xfa\xce" || substr($header, 0, 4) === "\xce\xfa\xed\xfe") return false;
+    // PHP opening tag
+    if (strpos($header, '<?php') !== false || strpos($header, '<?PHP') !== false) return false;
+    // Shell shebang
+    if (substr($header, 0, 2) === '#!') return false;
+    
+    return true;
 }
 
 /**
  * Validate upload ID format
  */
 function isValidUploadId($uploadId) {
-    return preg_match('/^[0-9]+-[a-z0-9]{9}$/', $uploadId);
+    return is_string($uploadId) && preg_match(UPLOAD_ID_PATTERN, $uploadId) === 1;
 }
 
 /**
@@ -500,6 +551,13 @@ function handleChunkUpload($post, $files, $chunks_dir) {
         return ['success' => false, 'message' => 'Failed to save chunk'];
     }
     
+    // Validate magic bytes on first chunk
+    if ($chunkIndex === 0 && !isChunkSafe($chunkFile)) {
+        unlink($chunkFile);
+        logSecurityEvent('blocked_magic_bytes', ['uploadId' => $uploadId]);
+        return ['success' => false, 'message' => 'File type not permitted'];
+    }
+    
     // Update metadata
     $metadata = json_decode(file_get_contents($metaFile), true);
     $metadata['lastActivity'] = time();
@@ -678,7 +736,10 @@ function handleFastDownload($input, $base_dir) {
     $realBase = realpath($base_dir);
     $realFile = realpath($filePath);
     
-    if (!$realFile || strpos($realFile, $realBase) !== 0) {
+    $baseWithSep = $realBase !== false
+        ? rtrim($realBase, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR
+        : '';
+    if (!$realFile || !$realBase || strpos($realFile, $baseWithSep) !== 0) {
         http_response_code(403);
         echo json_encode(['success' => false, 'message' => 'Access denied']);
         return;
